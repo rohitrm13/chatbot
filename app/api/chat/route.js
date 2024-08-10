@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const systemPrompt = `
-Welcome to HelpBot! I'm here to help you with any questions you have and provide useful resources to guide you.
+Welcome to CuveraAI! I'm here to help you with any questions you have and provide useful resources to guide you.
 
 Key Tasks:
 
