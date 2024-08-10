@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import dotenv from "dotenv";
 
 // Load environment variables from .env file
 dotenv.config();
 
-const systemPrompt =
-`
+const systemPrompt = `
 Welcome to HelpBot! I'm here to help you with any questions you have and provide useful resources to guide you.
 
 Key Tasks:
@@ -58,30 +58,35 @@ Escalation:
 Thank you for using [Your Support Chatbot Name]. I\'m here to ensure you get the answers and help you need!
 `;
 
-const model = new GoogleGenerativeAI(process.env.API_KEY).getGenerativeModel({
-  model: "gemini-1.5-flash"
-});
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export async function POST(request) {
   const data = await request.json();
   const messages = [
     {
-      role: 'system',
+      role: "system",
       content: systemPrompt,
     },
     ...data,
   ];
 
-  const prompt = messages.map(message => `${message.role}: ${message.content}`).join('\n');
+  const prompt = messages
+    .map((message) => `${message.role}: ${message.content}`)
+    .join("\n");
 
-  const result = await model.generateContentStream(prompt);
+  const result = await groq.chat.completions.create({
+    model: "llama-3.1-70b-versatile",
+    messages: prompt,
+    stream: true,
+  });
 
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
       try {
-        for await (const chunk of result.stream) {
-          const content = chunk.text();
+        for await (const chunk of result) {
+          const content = chunk.choices[0]?.delta?.content;
+          console.log(chunk.choices[0]);
           if (content) {
             const text = encoder.encode(content);
             controller.enqueue(text);
