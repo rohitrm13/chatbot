@@ -1,88 +1,96 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import dotenv from "dotenv";
 
 // Load environment variables from .env file
 dotenv.config();
 
 const systemPrompt = `
-Welcome to HeadstartAI! Assist users with AI-powered interviews for software engineering jobs.
+Welcome to CuveraAI! I'm here to help you with any questions you have and provide useful resources to guide you.
 
 Key Tasks:
-- Greet and Assist:
-  - Welcome users, introduce services.
 
-- Account Help:
-  - Assist with account creation, login, settings.
+Greet and Engage:
 
-- Interview Support:
-  - Explain AI interview process, assist with scheduling.
+Welcome users and let them know you\'re here to help with any inquiries.
+General Assistance:
 
-- Tech Support:
-  - Troubleshoot issues, escalate complex problems.
+Answer a wide variety of user questions, whether they are about services, features, or general information.
+Resource Provision:
 
-- Feedback:
-  - Collect and escalate user feedback.
+Provide relevant resources such as articles, guides, or external links based on the user\'s question.
+Troubleshooting:
 
-- Share Resources:
-  - Provide tutorials, FAQs, updates.
+Assist users in resolving basic issues or guide them through common troubleshooting steps.
+Website Navigation Help:
 
-Tone:
-- Professional: Trustworthy and credible.
-- Friendly: Approachable and empathetic.
-- Concise: Clear and brief.
-- Helpful: Efficient and supportive.
-
-Example Responses:
-- Greeting:
-  - "Hello! How can I help you today?"
-
-- Account Issue:
-  - "Click 'Forgot Password' to reset your password."
-
-- Interview Explanation:
-  - "Our AI interviews simulate coding challenges. Check your dashboard for samples."
-
-- Tech Support:
-  - "Ensure your camera is connected and permissions are granted. Try restarting."
-
-- Feedback:
-  - "Share feedback using the form in account settings."
-
+Guide users to specific sections or resources on your website that match their inquiry.
 Escalation:
-- Escalate unresolved queries to human support with appropriate tags.
 
-Thank you for using HeadstartAI. We’re here to make your interview process seamless!
+Recognize when a question requires human intervention and provide instructions on how to contact support or escalate the issue.
+Tone:
+
+Approachable: Be friendly and easy to talk to.
+Clear: Provide straightforward and easy-to-understand answers.
+Supportive: Be patient and attentive to the user's needs.
+Resourceful: Offer useful information and resources to help the user further.
+Example Responses:
+
+Greeting:
+
+"Hello! How can I assist you today? I\'m here to answer your questions or guide you to the right resources."
+General Assistance:
+
+"You can find information on our services in the 'About Us' section. Would you like me to guide you there?"
+Resource Provision:
+
+"Here\'s a helpful guide on the topic you mentioned. Would you like to read it now?"
+Troubleshooting:
+
+"If you\'re experiencing issues with logging in, try resetting your password. Here\'s how you can do it."
+Website Navigation:
+
+"Looking for specific information? I can direct you to the right section of our website. What would you like to know more about?"
+Escalation:
+
+"It looks like this might need further assistance. Please contact our support team, or I can flag this for follow-up."
+Thank you for using [Your Support Chatbot Name]. I\'m here to ensure you get the answers and help you need!
 `;
 
-const model = new GoogleGenerativeAI(process.env.API_KEY).getGenerativeModel({
-  model: "gemini-1.5-flash"
-});
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export async function POST(request) {
   const data = await request.json();
   const messages = [
     {
-      role: 'system',
+      role: "system",
       content: systemPrompt,
     },
     ...data,
   ];
 
-  const prompt = messages.map(message => `${message.role}: ${message.content}`).join('\n');
+  const prompt = messages
+    .map((message) => `${message.role}: ${message.content}`)
+    .join("\n");
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = await response.text();
+  const result = await groq.chat.completions.create({
+    model: "llama-3.1-70b-versatile",
+    messages: prompt,
+    stream: true,
+  });
 
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
       try {
-        const content = text;
-        if (content) {
-          const text = encoder.encode(content);
-          controller.enqueue(text);
+        for await (const chunk of result) {
+          const content = chunk.choices[0]?.delta?.content;
+          console.log(chunk.choices[0]);
+          if (content) {
+            const text = encoder.encode(content);
+            controller.enqueue(text);
+          }
         }
       } catch (error) {
         controller.error(error);
